@@ -59,7 +59,7 @@ class CmrFetcher:
 def main():
     parser = argparse.ArgumentParser(
         description='This script can be used to get the shortname, version, concept ID, and landing page url for'
-                    'collections in ')
+                    'collections in CMR.')
     required = parser.add_argument_group('required arguments')
     required.add_argument('-e', '--environment', choices=['prod', 'sit', 'uat'], dest='environment', required=True,
                           help='CMR environment')
