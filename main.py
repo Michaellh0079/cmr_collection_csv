@@ -2,21 +2,21 @@ import csv
 from dataclasses import dataclass
 import requests
 
+
 @dataclass
 class CmrCollection:
     shortname: str
-    version : str
-    concept_id : str
+    version: str
+    concept_id: str
     url: str
 
-        
 
 @dataclass
 class CmrFetcher:
-
     session = requests.Session()
-    cmr_env : str = "uat"
-    cmr_provider : str = "GHRC_CLOUD"
+    cmr_env: str = "uat"
+    cmr_provider: str = "GHRC_CLOUD"
+
     def __post_init__(self):
         self.cmr_env = '' if [self.cmr_env.lower() in ['prod', 'ops']] else self.cmr_env
         self.cmr_env = f'{self.cmr_env.rstrip(".")}.'
