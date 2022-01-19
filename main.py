@@ -1,21 +1,27 @@
 import csv
-import json
-
-import lxml.etree
+from dataclasses import dataclass
 import requests
 
-
+@dataclass
 class CmrCollection:
-    def __init__(self, shortname='', version='', concept_id='', url=''):
-        self.shortname = shortname
-        self.version = version
-        self.concept_id = concept_id
-        self.url = url
+    shortname: str
+    version : str
+    concept_id : str
+    url: str
 
+        
 
+@dataclass
 class CmrFetcher:
-    def __init__(self):
-        self.session = requests.Session()
+
+    session = requests.Session()
+    cmr_env : str = "uat"
+    cmr_provider : str = "GHRC_CLOUD"
+    def __post_init__(self):
+        self.cmr_env = '' if [self.cmr_env.lower() in ['prod', 'ops']] else self.cmr_env
+        self.cmr_env = f'{self.cmr_env.rstrip(".")}.'
+        self.base_cmr_url = f'https://cmr.{self.cmr_env}earthdata.nasa.gov/search'
+        self.cmr_url = f'{self.base_cmr_url}/collections.umm_json?provider={self.cmr_provider}&page_size=100'
 
     def get_locations(self):
         collections = []
@@ -23,12 +29,18 @@ class CmrFetcher:
         csa = None
         while True:
             headers = {'CMR-Search-After': csa}
-            res = self.session.get('https://cmr.uat.earthdata.nasa.gov/search/collections?provider=GHRC_CLOUD',
+            res = self.session.get(self.cmr_url,
                                    headers=headers)
-            root = lxml.etree.fromstring(res.text.encode())
-            for reference in root.find('references'):
+            if not res.ok:
+                return f"Error: {res.content}"
+            for ele in res.json()['items']:
+                collection = ele['umm']
+                collection_meta = ele['meta']
+                concept_id = collection_meta['concept-id']
+                url = f'{self.base_cmr_url}/concepts/{concept_id}.html'
+                args = [collection.get(key) for key in ['ShortName', 'Version']] + [concept_id, url]
                 collections.append(
-                    CmrCollection(concept_id=reference.find('id').text, url=reference.find('location').text)
+                    CmrCollection(*args)
                 )
 
             csa = res.headers.get('CMR-Search-After')
@@ -36,18 +48,6 @@ class CmrFetcher:
                 break
 
         return collections
-
-    def get_metadata(self, locations):
-        for location in locations:
-            res = self.session.get(location.url)
-            try:
-                root = lxml.etree.fromstring(res.text.encode())
-                location.shortname = root.findtext('ShortName')
-                location.version = root.findtext('VersionId')
-            except lxml.etree.XMLSyntaxError:
-                content = json.loads(res.text)
-                location.shortname = content.get('ShortName')
-                location.version = content.get('Version')
 
     @staticmethod
     def write_csv(collections):
@@ -62,9 +62,9 @@ class CmrFetcher:
 def main():
     t = CmrFetcher()
     collections = t.get_locations()
-    t.get_metadata(collections)
     t.write_csv(collections)
 
 
 if __name__ == '__main__':
     main()
+
