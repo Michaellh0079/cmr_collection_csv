@@ -1,3 +1,4 @@
+import argparse
 import csv
 from dataclasses import dataclass
 import requests
@@ -14,14 +15,10 @@ class CmrCollection:
 @dataclass
 class CmrFetcher:
     session = requests.Session()
-    cmr_env: str = "uat"
-    cmr_provider: str = "GHRC_CLOUD"
 
-    def __post_init__(self):
-        self.cmr_env = '' if [self.cmr_env.lower() in ['prod', 'ops']] else self.cmr_env
-        self.cmr_env = f'{self.cmr_env.rstrip(".")}.'
-        self.base_cmr_url = f'https://cmr.{self.cmr_env}earthdata.nasa.gov/search'
-        self.cmr_url = f'{self.base_cmr_url}/collections.umm_json?provider={self.cmr_provider}&page_size=100'
+    def __init__(self, cmr_env, cmr_provider):
+        self.base_cmr_url = f'https://cmr.{cmr_env}.earthdata.nasa.gov/search'
+        self.cmr_url = f'{self.base_cmr_url}/collections.umm_json?provider={cmr_provider}&page_size=100'
 
     def get_locations(self):
         collections = []
@@ -60,7 +57,18 @@ class CmrFetcher:
 
 
 def main():
-    t = CmrFetcher()
+    parser = argparse.ArgumentParser(
+        description='This script can be used to get the shortname, version, concept ID, and landing page url for'
+                    'collections in ')
+    required = parser.add_argument_group('required arguments')
+    required.add_argument('-e', '--environment', choices=['prod', 'sit', 'uat'], dest='environment', required=True,
+                          help='CMR environment')
+    required.add_argument('-p', '--provider', dest='provider', required=True,
+                          help='CMR environment')
+
+    args = parser.parse_args()
+
+    t = CmrFetcher(cmr_env=args.environment, cmr_provider=args.provider)
     collections = t.get_locations()
     t.write_csv(collections)
 
